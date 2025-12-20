@@ -1,0 +1,69 @@
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  background: #050610;
+  color: rgba(230,236,255,0.92);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::selection { background: rgba(130, 180, 255, 0.28); }
+
+.tb-card {
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10, 12, 18, 0.72);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+}
+
+/* Sitrep typography tuning (readability) */
+.tb-sitrep {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(230,236,255,0.92);
+}
+
+.tb-sitrep .tb-card {
+  background: rgba(10, 12, 18, 0.78);
+}
+
+.tb-sitrep a { color: rgba(210,220,255,0.95); }
+
+/* Safari/UA default button styling can make text unreadable on dark backgrounds. */
+.tb-sitrep button {
+  font: inherit;
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.tb-sitrep select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Readable long-form content on dark background, even if injected HTML includes dark styles */
+.tb-prose, .tb-prose * {
+  color: rgba(230,236,255,0.92) !important;
+}
+
+.tb-prose {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.tb-prose a { color: rgba(180, 200, 255, 0.95) !important; text-decoration: underline; }
+.tb-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.tb-prose pre {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}

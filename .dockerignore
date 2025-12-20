@@ -1,0 +1,33 @@
+# flyctl launch added from .gitignore
+# dependencies
+**/node_modules
+
+# Next.js build output
+**/.next
+**/out
+**/dist
+
+# env files (keep .env.example committed)
+**/.env
+**/.env.*
+!**/.env.example
+
+# logs
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+# OS / editor
+**/.DS_Store
+**/.vscode
+
+# coverage / tooling
+**/coverage
+**/*.tsbuildinfo
+**/.eslintcache
+
+# Vercel
+**/.vercel
+fly.toml
