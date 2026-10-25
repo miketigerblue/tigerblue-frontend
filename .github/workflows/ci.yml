@@ -1,0 +1,106 @@
+# Container scan + SBOM for the public web front end.
+#
+# Builds the same image Fly deploys, scans it with Trivy (findings land in
+# the Security tab; the table scan is non-blocking until the baseline is
+# clean), and publishes an SPDX SBOM to the Tiger Blue SBOM service on
+# main pushes so this image is tracked next to the hosted services.
+#
+# Publishing needs the TIGER_WATCH_API_KEY repository secret (the shared
+# upload key the other Tiger Blue repos use). Until it is set the step is
+# skipped with a warning rather than failing the build.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  container-scan:
+    name: Container Build + Trivy Scan + SBOM
+    runs-on: ubuntu-latest
+    env:
+      TIGER_WATCH_URL: ${{ vars.TIGER_WATCH_URL || 'https://tiger-watch.fly.dev' }}
+      TIGER_WATCH_API_KEY: ${{ secrets.TIGER_WATCH_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build image
+        # `next build` bakes the two build args into the client bundle. CI
+        # passes placeholders (or repository variables if set); the image is
+        # scanned, never deployed, so the values only need to let the build
+        # complete.
+        run: |
+          docker build --pull -t tigerblue-frontend:ci \
+            --build-arg NEXT_PUBLIC_POSTGREST_BASE="${{ vars.NEXT_PUBLIC_POSTGREST_BASE || 'https://postgrest.example.invalid' }}" \
+            --build-arg NEXUS_BASE="${{ vars.NEXUS_BASE || 'https://nexus.example.invalid' }}" \
+            .
+
+      - name: Trivy vulnerability scan (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: tigerblue-frontend:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+        continue-on-error: true
+
+      - name: Trivy vulnerability scan (table)
+        # Non-blocking for now: this image has never been scanned, so the
+        # first runs establish the baseline. Flip exit-code to "1" once the
+        # fixable CRITICAL/HIGH count is zero.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: tigerblue-frontend:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Generate SBOM
+        # SPDX-JSON: the only format the Tiger Blue SBOM service parses.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: tigerblue-frontend:ci
+          format: spdx-json
+          output: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      - name: Publish SBOM to Tiger Watch
+        # Main-branch pushes only: PR builds (including forks) must not write
+        # to the service. Auth: X-API-Key checked against the service's
+        # SBOM_UPLOAD_API_KEY secret.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.TIGER_WATCH_API_KEY != ''
+        run: |
+          curl -sf --retry 3 --retry-delay 5 -X POST \
+            "${TIGER_WATCH_URL}/sbom/upload" \
+            -H "X-API-Key: ${TIGER_WATCH_API_KEY}" \
+            -F "file=@sbom.spdx.json" \
+            -F "vendor=tigerblue" \
+            -F "device_type=container:tigerblue-frontend" \
+            -F "notes=CI ${GITHUB_SHA} run ${GITHUB_RUN_ID}"
+
+      - name: SBOM not published (no key)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.TIGER_WATCH_API_KEY == ''
+        run: echo "::warning::TIGER_WATCH_API_KEY is not set on this repository; the SBOM was built but not published to Tiger Watch."
